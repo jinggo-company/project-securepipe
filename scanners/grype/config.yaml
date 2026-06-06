@@ -1,0 +1,9 @@
+scanner: grype
+enabled: true
+scan_types:
+  - sbom
+  - vulnerability
+severity_threshold: HIGH
+output_format: json
+db:
+  auto_update: true

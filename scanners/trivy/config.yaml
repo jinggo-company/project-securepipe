@@ -1,0 +1,12 @@
+scanner: trivy
+enabled: true
+scan_types:
+  - image
+  - filesystem
+  - config
+severity_threshold: MEDIUM
+ignore_file: .trivyignore
+output_format: table
+db:
+  auto_update: true
+  skip_update: false
