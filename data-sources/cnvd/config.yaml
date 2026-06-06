@@ -1,0 +1,22 @@
+# CNVD (国家信息安全漏洞共享平台) 数据源配置
+data_source: cnvd
+enabled: true
+type: vulnerability_feed
+base_url: https://www.cnvd.org.cn
+api:
+  # CNVD 无公开 REST API，通过 RSS/XML 订阅或定期抓取
+  rss_feed: https://www.cnvd.org.cn/rss
+  crawl_interval_hours: 6
+  max_entries_per_sync: 100
+filter:
+  severity:
+    - critical
+    - high
+    - medium
+  product_scope: []  # 留空 = 全量
+output:
+  format: json
+  directory: data/cnvd
+sync:
+  enabled: true
+  schedule: "0 */6 * * *"  # 每 6 小时同步

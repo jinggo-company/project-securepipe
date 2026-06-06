@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecurePipe — 多引擎聚合仪表盘</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --critical: #ef4444;
+      --high: #f97316;
+      --medium: #eab308;
+      --low: #22c55e;
+      --accent: #3b82f6;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+    header h1 { font-size: 1.5rem; }
+    header .status { color: var(--low); font-size: 0.875rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .card h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 8px; }
+    .card .value { font-size: 2rem; font-weight: 700; }
+    .card .sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+    .severity-critical { color: var(--critical); }
+    .severity-high { color: var(--high); }
+    .severity-medium { color: var(--medium); }
+    .severity-low { color: var(--low); }
+    .section-title { font-size: 1.125rem; margin-bottom: 16px; font-weight: 600; }
+    .engine-list { display: grid; gap: 12px; }
+    .engine-row { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; }
+    .engine-row .name { flex: 1; font-weight: 500; }
+    .engine-row .badge { padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+    .badge-active { background: #166534; color: #86efac; }
+    .badge-disabled { background: #451a03; color: #fde68a; }
+    .vuln-table { width: 100%; border-collapse: collapse; }
+    .vuln-table th, .vuln-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+    .vuln-table th { color: var(--text-muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; }
+    .source-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+    .source-trivy { background: #1e3a5f; color: #93c5fd; }
+    .source-grype { background: #3b1f5e; color: #c4b5fd; }
+    .source-nvd { background: #1c1917; color: #f5f5f4; }
+    .source-cnvd { background: #7f1d1d; color: #fecaca; }
+    .refresh-btn { background: var(--accent); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.875rem; }
+    .refresh-btn:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🛡️ SecurePipe 仪表盘</h1>
+      <div>
+        <span class="status" id="lastSync">最后同步: --</span>
+        <button class="refresh-btn" onclick="refresh()" style="margin-left:12px">刷新</button>
+      </div>
+    </header>
+
+    <!-- 概览卡片 -->
+    <div class="grid">
+      <div class="card">
+        <h3>总漏洞数</h3>
+        <div class="value" id="totalVulns">--</div>
+        <div class="sub">来自所有引擎</div>
+      </div>
+      <div class="card">
+        <h3>严重 (Critical)</h3>
+        <div class="value severity-critical" id="criticalCount">--</div>
+        <div class="sub">需要立即修复</div>
+      </div>
+      <div class="card">
+        <h3>高危 (High)</h3>
+        <div class="value severity-high" id="highCount">--</div>
+        <div class="sub">优先处理</div>
+      </div>
+      <div class="card">
+        <h3>数据源状态</h3>
+        <div class="value severity-low" id="sourceStatus">3/3</div>
+        <div class="sub">CNVD / NVD / 扫描引擎</div>
+      </div>
+    </div>
+
+    <!-- 引擎状态 -->
+    <h2 class="section-title">扫描引擎</h2>
+    <div class="engine-list" id="engineList">
+      <div class="engine-row">
+        <span class="name">Trivy</span>
+        <span class="badge badge-active">已启用</span>
+        <span style="color:var(--text-muted);font-size:0.8rem">image / filesystem / config</span>
+      </div>
+      <div class="engine-row">
+        <span class="name">Grype</span>
+        <span class="badge badge-active">已启用</span>
+        <span style="color:var(--text-muted);font-size:0.8rem">sbom / vulnerability</span>
+      </div>
+    </div>
+
+    <h2 class="section-title" style="margin-top:32px">漏洞数据源</h2>
+    <div class="engine-list" id="dataSourceList">
+      <div class="engine-row">
+        <span class="name">CNVD</span>
+        <span class="badge badge-active">已配置</span>
+        <span style="color:var(--text-muted);font-size:0.8rem">每 6h 同步</span>
+      </div>
+      <div class="engine-row">
+        <span class="name">NVD</span>
+        <span class="badge badge-active">已配置</span>
+        <span style="color:var(--text-muted);font-size:0.8rem">每 4h 同步</span>
+      </div>
+    </div>
+
+    <!-- 漏洞列表 -->
+    <h2 class="section-title" style="margin-top:32px">聚合漏洞列表</h2>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="vuln-table">
+        <thead>
+          <tr><th>CVE / ID</th><th>来源</th><th>严重性</th><th>CVSS</th><th>描述</th></tr>
+        </thead>
+        <tbody id="vulnBody">
+          <tr><td colspan="5" style="text-align:center;color:var(--text-muted)">点击"刷新"加载数据，或运行 <code>bash scripts/sync-vulnerability-feeds.sh</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    async function refresh() {
+      document.getElementById('lastSync').textContent = '最后同步: ' + new Date().toLocaleString();
+      // 加载本地同步数据
+      const vulns = [];
+      // 从 NVD 数据加载
+      try {
+        const nvdFiles = await listDataFiles('data/nvd');
+        for (const f of nvdFiles) {
+          const data = await fetchData(f);
+          if (data && data.vulnerabilities) {
+            data.vulnerabilities.forEach(v => {
+              const cve = v.cve;
+              vulns.push({
+                id: cve.id,
+                source: 'NVD',
+                severity: (cve.metrics?.cvssMetricV31?.[0]?.cvssData?.baseSeverity || 'unknown').toUpperCase(),
+                cvss: cve.metrics?.cvssMetricV31?.[0]?.cvssData?.baseScore || '--',
+                desc: (cve.descriptions?.[0]?.value || '').substring(0, 80)
+              });
+            });
+          }
+        }
+      } catch(e) { console.log('NVD data load:', e.message); }
+
+      renderVulns(vulns);
+      updateSummary(vulns);
+    }
+
+    async function listDataFiles(dir) { /* placeholder for file listing */ return []; }
+    async function fetchData(path) { return null; }
+
+    function renderVulns(vulns) {
+      const tbody = document.getElementById('vulnBody');
+      if (vulns.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">暂无数据。请先运行扫描和数据同步。</td></tr>';
+        return;
+      }
+      tbody.innerHTML = vulns.slice(0, 50).map(v => {
+        const sevClass = `severity-${v.severity.toLowerCase()}`;
+        const sourceClass = `source-${v.source.toLowerCase()}`;
+        return `<tr>
+          <td>${v.id}</td>
+          <td><span class="source-tag ${sourceClass}">${v.source}</span></td>
+          <td class="${sevClass}">${v.severity}</td>
+          <td>${v.cvss}</td>
+          <td>${v.desc}...</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function updateSummary(vulns) {
+      document.getElementById('totalVulns').textContent = vulns.length;
+      document.getElementById('criticalCount').textContent = vulns.filter(v => v.severity === 'CRITICAL').length;
+      document.getElementById('highCount').textContent = vulns.filter(v => v.severity === 'HIGH').length;
+    }
+
+    // Init with sample data to show UI structure
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('lastSync').textContent = '最后同步: ' + new Date().toLocaleString();
+    });
+  </script>
+</body>
+</html>

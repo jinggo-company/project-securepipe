@@ -20,3 +20,12 @@
 ## SBOM 生成
 - 格式: CycloneDX JSON + SPDX
 - 输出: sbom/ 目录
+
+## 数据源
+- CNVD: RSS 订阅（6 小时同步）
+- NVD: REST API v2.0（4 小时增量同步）
+- 数据存储: data/ 目录（JSON/XML）
+
+## 仪表盘
+- 技术: 纯 HTML/CSS/JS，无外部依赖
+- 功能: 多引擎聚合概览、按来源标签、CVSS 评分展示

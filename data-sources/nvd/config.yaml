@@ -1,0 +1,30 @@
+# NVD (National Vulnerability Database) 数据源配置
+data_source: nvd
+enabled: true
+type: vulnerability_feed
+base_url: https://services.nvd.nist.gov/rest/json
+api:
+  version: "2.0"
+  endpoint: https://services.nvd.nist.gov/rest/json/cves/2.0
+  api_key_env: NVD_API_KEY  # 可选，设置后可提高速率限制
+  rate_limit:
+    without_key: 5  # requests/second
+    with_key: 50    # requests/second
+  request_timeout: 30
+  retry:
+    max_retries: 3
+    backoff_ms: 1000
+filter:
+  severity:
+    - critical
+    - high
+    - medium
+  cvss_version: "3.1"
+  last_mod_start_date: null  # 增量同步起点
+output:
+  format: json
+  directory: data/nvd
+sync:
+  enabled: true
+  schedule: "0 */4 * * *"  # 每 4 小时同步
+  incremental: true
